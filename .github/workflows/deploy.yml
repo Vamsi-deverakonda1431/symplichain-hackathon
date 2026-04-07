@@ -1,0 +1,46 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /var/www/app
+            git pull origin ${{ github.ref_name }}
+            pip install -r requirements.txt
+            cd frontend
+            npm install
+            npm run build
+            sudo systemctl restart gunicorn
+            sudo systemctl restart nginx
